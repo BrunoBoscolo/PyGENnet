@@ -165,9 +165,7 @@ Matrix* forward_pass(const NeuralNetwork* net, const Matrix* input) {
         Matrix* next_output = dot_product(current_output, net->weights[i]);
         add_bias(next_output, net->biases[i]);
 
-        if (i < net->num_layers - 2) { // Apply activation to all but the last layer
-            apply_sigmoid(next_output);
-        }
+        apply_sigmoid(next_output);
 
         free_matrix(current_output);
         current_output = next_output;

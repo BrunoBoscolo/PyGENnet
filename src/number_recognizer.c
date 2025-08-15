@@ -47,31 +47,29 @@ double calculate_classification_fitness(NeuralNetwork* network, const Dataset* d
 }
 
 int main() {
-    printf("--- Starting Number Recognition Example (C Version) ---\n");
+    printf("--- Starting Number Recognition Training ---\n");
 
     // --- 1. Define Parameters ---
     const int ARCHITECTURE[] = {MNIST_IMAGE_SIZE, 128, 64, MNIST_NUM_CLASSES};
     const int NUM_LAYERS = sizeof(ARCHITECTURE) / sizeof(int);
-    const int POPULATION_SIZE = 50; // Smaller population for quicker demo
+    const int POPULATION_SIZE = 50;
     const float MUTATION_RATE = 0.1f;
     const float MUTATION_CHANCE = 0.2f;
-    const int NUM_GENERATIONS = 50;
-    const int DATASET_SIZE = 100; // Using a small dummy dataset
+    const int NUM_GENERATIONS = 20; // Reduced for a quicker run
 
-    // --- 2. Create Dummy Dataset ---
-    printf("Creating a dummy dataset of %d items...\n", DATASET_SIZE);
-    Dataset* dataset = create_dummy_dataset(DATASET_SIZE);
-    if (!dataset) {
-        fprintf(stderr, "Failed to create dataset.\n");
+    // --- 2. Load Training Dataset ---
+    printf("Loading MNIST training data...\n");
+    Dataset* train_dataset = load_dataset("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte");
+    if (!train_dataset) {
+        fprintf(stderr, "Failed to load training dataset.\n");
         return 1;
     }
-    printf("Dataset created successfully.\n");
 
     // --- 3. Create Initial Population ---
     srand(time(NULL));
     NeuralNetwork** population = create_initial_population(POPULATION_SIZE, NUM_LAYERS, ARCHITECTURE);
     printf("Created initial population of %d networks.\n", POPULATION_SIZE);
-    printf("--------------------\n");
+    printf("----------------------------------------\n");
 
     // --- 4. Run Evolutionary Loop ---
     for (int gen = 0; gen < NUM_GENERATIONS; gen++) {
@@ -80,16 +78,15 @@ int main() {
 
         for (int i = 0; i < POPULATION_SIZE; i++) {
             population_with_fitness[i].network = population[i];
-            population_with_fitness[i].fitness = calculate_classification_fitness(population[i], dataset);
+            population_with_fitness[i].fitness = calculate_classification_fitness(population[i], train_dataset);
             if (population_with_fitness[i].fitness > best_fitness_in_gen) {
                 best_fitness_in_gen = population_with_fitness[i].fitness;
             }
         }
-        printf("Generation %d/%d | Best Accuracy (Fitness): %.4f\n", gen + 1, NUM_GENERATIONS, best_fitness_in_gen);
+        printf("Generation %d/%d | Best Training Accuracy: %.4f\n", gen + 1, NUM_GENERATIONS, best_fitness_in_gen);
 
         int num_fittest;
         NetworkFitness* fittest_networks_info = select_fittest(population_with_fitness, POPULATION_SIZE, &num_fittest);
-
         NeuralNetwork** new_population = reproduce(fittest_networks_info, num_fittest, POPULATION_SIZE, MUTATION_RATE, MUTATION_CHANCE);
 
         for (int i = 0; i < POPULATION_SIZE; i++) {
@@ -99,16 +96,46 @@ int main() {
         free(fittest_networks_info);
         population = new_population;
     }
+    printf("----------------------------------------\n");
+    printf("Evolution finished.\n\n");
 
-    printf("--------------------\n");
-    printf("Evolution finished.\n");
+    // --- 5. Evaluate on Test Data ---
+    printf("Loading MNIST test data...\n");
+    Dataset* test_dataset = load_dataset("data/t10k-images.idx3-ubyte", "data/t10k-labels.idx1-ubyte");
+    if (!test_dataset) {
+        fprintf(stderr, "Failed to load test dataset.\n");
+        free_dataset(train_dataset);
+        for (int i = 0; i < POPULATION_SIZE; i++) free_neural_network(population[i]);
+        free(population);
+        return 1;
+    }
 
-    // --- 5. Cleanup ---
-    free_dataset(dataset);
+    // Find the best network from the final population
+    NeuralNetwork* best_network = population[0];
+    double best_fitness = calculate_classification_fitness(best_network, train_dataset);
+    for (int i = 1; i < POPULATION_SIZE; i++) {
+        double current_fitness = calculate_classification_fitness(population[i], train_dataset);
+        if (current_fitness > best_fitness) {
+            best_fitness = current_fitness;
+            best_network = population[i];
+        }
+    }
+
+    // Test the best network
+    double test_accuracy = calculate_classification_fitness(best_network, test_dataset);
+    printf("----------------------------------------\n");
+    printf("Final Test Accuracy of the best network: %.4f\n", test_accuracy);
+    printf("----------------------------------------\n");
+
+    // --- 6. Cleanup ---
+    printf("Cleaning up resources...\n");
+    free_dataset(train_dataset);
+    free_dataset(test_dataset);
     for (int i = 0; i < POPULATION_SIZE; i++) {
         free_neural_network(population[i]);
     }
     free(population);
+    printf("Done.\n");
 
     return 0;
 }

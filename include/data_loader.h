@@ -17,8 +17,8 @@ typedef struct {
 
 // --- Data Loader Functions ---
 
-// Creates a dummy dataset with random values
-Dataset* create_dummy_dataset(int num_items);
+// Loads a dataset from MNIST IDX files
+Dataset* load_dataset(const char* image_path, const char* label_path);
 
 // Frees the memory allocated for a dataset
 void free_dataset(Dataset* dataset);

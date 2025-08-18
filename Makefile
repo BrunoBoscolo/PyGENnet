@@ -4,7 +4,7 @@ CFLAGS = -Iinclude -Wall -O3
 LDFLAGS = -lm
 
 # Source files and object files
-SRCS = src/main.c src/neural_network.c src/evolution.c
+SRCS = src/main.c src/neural_network.c src/evolution.c src/data_loader.c
 OBJS = $(SRCS:.c=.o)
 
 # Target executable

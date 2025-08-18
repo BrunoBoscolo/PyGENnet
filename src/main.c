@@ -2,122 +2,137 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 #include "neural_network.h"
 #include "evolution.h"
+#include "data_loader.h"
 
-// --- Fitness Function ---
-double calculate_fitness(NeuralNetwork* network, const Matrix* input_data, const Matrix* target_output) {
-    Matrix* output = forward_pass(network, input_data);
-    if (!output) {
-        fprintf(stderr, "Forward pass failed.\n");
-        return 0.0;
-    }
-
-    double mse = 0.0;
-    for (int i = 0; i < target_output->rows; i++) {
-        for (int j = 0; j < target_output->cols; j++) {
-            double error = output->data[i][j] - target_output->data[i][j];
-            mse += error * error;
+// --- Helper: Find index of max value ---
+int get_predicted_class(const Matrix* output) {
+    int max_index = 0;
+    for (int i = 1; i < output->cols; i++) {
+        if (output->data[0][i] > output->data[0][max_index]) {
+            max_index = i;
         }
     }
-    mse /= (target_output->rows * target_output->cols);
+    return max_index;
+}
 
-    free_matrix(output);
+// --- Fitness Function (Accuracy) ---
+// Note: Evaluating on the full dataset is slow. We use a subset.
+double calculate_fitness(NeuralNetwork* network, const Dataset* dataset, int num_samples) {
+    int correct_predictions = 0;
+    if (num_samples > dataset->num_items) {
+        num_samples = dataset->num_items;
+    }
 
-    return 1.0 / (mse + 1e-6);
+    for (int i = 0; i < num_samples; i++) {
+        // Create a temporary matrix for a single image input
+        Matrix* input = create_matrix(1, MNIST_IMAGE_SIZE);
+        if (!input) continue;
+        memcpy(input->data[0], dataset->images->data[i], MNIST_IMAGE_SIZE * sizeof(double));
+
+        Matrix* output = forward_pass(network, input);
+        if (!output) {
+            free_matrix(input);
+            continue;
+        }
+
+        int predicted_class = get_predicted_class(output);
+
+        int true_class = 0;
+        for (int j = 0; j < MNIST_NUM_CLASSES; j++) {
+            if (dataset->labels->data[i][j] == 1.0) {
+                true_class = j;
+                break;
+            }
+        }
+
+        if (predicted_class == true_class) {
+            correct_predictions++;
+        }
+
+        free_matrix(input);
+        free_matrix(output);
+    }
+
+    return (double)correct_predictions / num_samples;
 }
 
 int main() {
-    printf("--- Starting Neural Network Evolution Example (C Version) ---\n");
+    printf("--- Starting MNIST Training with Genetic Algorithm (C Version) ---\n");
 
     // --- 1. Define Parameters ---
-    const int ARCHITECTURE[] = {3, 5, 2};
+    const int ARCHITECTURE[] = {MNIST_IMAGE_SIZE, 128, MNIST_NUM_CLASSES};
     const int NUM_LAYERS = sizeof(ARCHITECTURE) / sizeof(int);
     const int POPULATION_SIZE = 50;
     const float MUTATION_RATE = 0.05f;
     const float MUTATION_CHANCE = 0.1f;
     const int NUM_GENERATIONS = 10;
 
-    // --- Task Definition ---
-    Matrix* input_data = create_matrix(1, 3);
-    input_data->data[0][0] = 0.5;
-    input_data->data[0][1] = 0.1;
-    input_data->data[0][2] = -0.2;
+    // --- 2. Load MNIST Data ---
+    Dataset* train_dataset = load_mnist_dataset("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte");
+    if (!train_dataset) {
+        fprintf(stderr, "Failed to load training data.\n");
+        return 1;
+    }
+    // The training set will be used for both training and fitness evaluation.
 
-    Matrix* target_output = create_matrix(1, 2);
-    target_output->data[0][0] = 0.8;
-    target_output->data[0][1] = 0.3;
+    const int FITNESS_SAMPLES = 1000; // Use 1000 samples for fitness eval
 
     // --- 3. Create Initial Population ---
-    srand(time(NULL)); // Seed for evolution randomness
+    srand(time(NULL));
     NeuralNetwork** population = create_initial_population(POPULATION_SIZE, NUM_LAYERS, ARCHITECTURE);
     printf("Created initial population of %d networks.\n", POPULATION_SIZE);
     printf("Network architecture: [");
     for(int i=0; i<NUM_LAYERS; i++) printf("%d%s", ARCHITECTURE[i], i == NUM_LAYERS - 1 ? "" : ", ");
     printf("]\n");
+    printf("Using %d samples for fitness evaluation.\n", FITNESS_SAMPLES);
     printf("--------------------\n");
 
     // --- 4. Run Evolutionary Loop ---
     for (int gen = 0; gen < NUM_GENERATIONS; gen++) {
         NetworkFitness population_with_fitness[POPULATION_SIZE];
-        double best_fitness_in_gen = 0.0;
+        double best_accuracy_in_gen = 0.0;
 
         for (int i = 0; i < POPULATION_SIZE; i++) {
             population_with_fitness[i].network = population[i];
-            population_with_fitness[i].fitness = calculate_fitness(population[i], input_data, target_output);
-            if (population_with_fitness[i].fitness > best_fitness_in_gen) {
-                best_fitness_in_gen = population_with_fitness[i].fitness;
+            population_with_fitness[i].fitness = calculate_fitness(population[i], train_dataset, FITNESS_SAMPLES);
+            if (population_with_fitness[i].fitness > best_accuracy_in_gen) {
+                best_accuracy_in_gen = population_with_fitness[i].fitness;
             }
         }
-        printf("Generation %d/%d | Best Fitness: %.4f\n", gen + 1, NUM_GENERATIONS, best_fitness_in_gen);
+        printf("Generation %d/%d | Best Accuracy: %.2f%%\n", gen + 1, NUM_GENERATIONS, best_accuracy_in_gen * 100.0);
 
         int num_fittest;
         NetworkFitness* fittest_networks_info = select_fittest(population_with_fitness, POPULATION_SIZE, &num_fittest);
 
         NeuralNetwork** new_population = reproduce(fittest_networks_info, num_fittest, POPULATION_SIZE, MUTATION_RATE, MUTATION_CHANCE);
 
-        // Free the old population's networks
         for (int i = 0; i < POPULATION_SIZE; i++) {
             free_neural_network(population[i]);
         }
         free(population);
-
-        // The fittest_networks_info contains pointers to networks that are now freed.
-        // We don't need to free the networks inside fittest_networks_info again.
         free(fittest_networks_info);
-
         population = new_population;
     }
 
     printf("--------------------\n");
-    // --- 5. Show Results ---
-    NetworkFitness final_population_fitness[POPULATION_SIZE];
-    double best_overall_fitness = 0.0;
-    NeuralNetwork* best_overall_network = NULL;
-
+    // --- 5. Show Final Results ---
+    double best_overall_accuracy = 0.0;
     for (int i = 0; i < POPULATION_SIZE; i++) {
-        final_population_fitness[i].network = population[i];
-        final_population_fitness[i].fitness = calculate_fitness(population[i], input_data, target_output);
-        if (final_population_fitness[i].fitness > best_overall_fitness) {
-            best_overall_fitness = final_population_fitness[i].fitness;
-            best_overall_network = population[i];
+        double accuracy = calculate_fitness(population[i], train_dataset, FITNESS_SAMPLES);
+        if (accuracy > best_overall_accuracy) {
+            best_overall_accuracy = accuracy;
         }
     }
 
     printf("Evolution finished.\n");
-    printf("Best fitness achieved: %.4f\n", best_overall_fitness);
-
-    printf("\nInspecting the best network's performance:\n");
-    Matrix* final_output = forward_pass(best_overall_network, input_data);
-    printf("Input: [%.2f, %.2f, %.2f]\n", input_data->data[0][0], input_data->data[0][1], input_data->data[0][2]);
-    printf("Target Output: [%.2f, %.2f]\n", target_output->data[0][0], target_output->data[0][1]);
-    printf("Actual Output: [%.4f, %.4f]\n", final_output->data[0][0], final_output->data[0][1]);
+    printf("Best accuracy achieved after %d generations: %.2f%%\n", NUM_GENERATIONS, best_overall_accuracy * 100.0);
 
     // --- 6. Cleanup ---
-    free_matrix(input_data);
-    free_matrix(target_output);
-    free_matrix(final_output);
+    free_dataset(train_dataset);
     for (int i = 0; i < POPULATION_SIZE; i++) {
         free_neural_network(population[i]);
     }

@@ -17,6 +17,11 @@ typedef struct {
 
 // --- Data Loader Functions ---
 
+// --- Data Loader Functions ---
+
+// Loads the MNIST dataset from the specified files
+Dataset* load_mnist_dataset(const char* image_path, const char* label_path);
+
 // Creates a dummy dataset with random values
 Dataset* create_dummy_dataset(int num_items);
 

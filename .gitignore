@@ -1,3 +1,5 @@
 # Build artifacts
 *.o
 main
+recognizer
+test_runner

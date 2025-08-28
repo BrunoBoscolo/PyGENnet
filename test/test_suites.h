@@ -9,6 +9,12 @@ const char* test_matrix_dot_product();
 const char* test_nn_creation();
 const char* test_nn_forward_pass();
 
+// test_persistence.c
+const char* test_save_and_load_network();
+
+// test_evolution.c
+const char* test_crossover();
+
 // Add declarations for other test suites here
 
 // A function to run all test suites

@@ -2,7 +2,7 @@
 #include "../include/neural_network.h"
 #include <math.h>
 
-const double TEST_EPSILON = 1e-9;
+extern const double TEST_EPSILON;
 
 // Test for matrix creation
 const char* test_matrix_creation() {

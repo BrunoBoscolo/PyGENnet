@@ -119,17 +119,27 @@ int main() {
     }
 
     printf("--------------------\n");
-    // --- 5. Show Final Results ---
+    // --- 5. Find Best Network and Save ---
+    NeuralNetwork* best_net = NULL;
     double best_overall_accuracy = 0.0;
     for (int i = 0; i < POPULATION_SIZE; i++) {
         double accuracy = calculate_fitness(population[i], train_dataset, FITNESS_SAMPLES);
         if (accuracy > best_overall_accuracy) {
             best_overall_accuracy = accuracy;
+            best_net = population[i];
         }
     }
 
     printf("Evolution finished.\n");
     printf("Best accuracy achieved after %d generations: %.2f%%\n", NUM_GENERATIONS, best_overall_accuracy * 100.0);
+
+    if (best_net) {
+        if (save_network(best_net, "trained_network.dat")) {
+            printf("Best network saved to trained_network.dat\n");
+        } else {
+            fprintf(stderr, "Failed to save the best network.\n");
+        }
+    }
 
     // --- 6. Cleanup ---
     free_dataset(train_dataset);

@@ -38,4 +38,7 @@ Matrix* forward_pass(const NeuralNetwork* net, const Matrix* input);
 void mutate_network(NeuralNetwork* net, float mutation_rate, float mutation_chance);
 NeuralNetwork* clone_network(const NeuralNetwork* src_net);
 
+int save_network(const NeuralNetwork* net, const char* filepath);
+NeuralNetwork* load_network(const char* filepath);
+
 #endif // NEURAL_NETWORK_H

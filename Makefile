@@ -11,7 +11,7 @@ OBJS = $(SRCS:.c=.o)
 TARGET = main
 
 # Test files
-TEST_SRCS = test/test_runner.c test/test_matrix.c test/test_neural_network.c src/neural_network.c src/evolution.c
+TEST_SRCS = test/test_runner.c test/test_matrix.c test/test_neural_network.c test/test_persistence.c test/test_evolution.c src/neural_network.c src/evolution.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 TEST_TARGET = test_runner
 

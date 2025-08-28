@@ -215,3 +215,97 @@ NeuralNetwork* clone_network(const NeuralNetwork* src_net) {
 
     return new_net;
 }
+
+int save_network(const NeuralNetwork* net, const char* filepath) {
+    FILE* file = fopen(filepath, "w");
+    if (!file) {
+        perror("Failed to open file for writing");
+        return 0; // Failure
+    }
+
+    // Write architecture
+    fprintf(file, "%d\n", net->num_layers);
+    for (int i = 0; i < net->num_layers; i++) {
+        fprintf(file, "%d ", net->architecture[i]);
+    }
+    fprintf(file, "\n");
+
+    // Write weights and biases
+    for (int i = 0; i < net->num_layers - 1; i++) {
+        // Weights
+        for (int r = 0; r < net->weights[i]->rows; r++) {
+            for (int c = 0; c < net->weights[i]->cols; c++) {
+                fprintf(file, "%.17g ", net->weights[i]->data[r][c]);
+            }
+            fprintf(file, "\n");
+        }
+        // Biases
+        for (int c = 0; c < net->biases[i]->cols; c++) {
+            fprintf(file, "%.17g ", net->biases[i]->data[0][c]);
+        }
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+    return 1; // Success
+}
+
+NeuralNetwork* load_network(const char* filepath) {
+    FILE* file = fopen(filepath, "r");
+    if (!file) {
+        perror("Failed to open file for reading");
+        return NULL;
+    }
+
+    // Read architecture
+    int num_layers;
+    if (fscanf(file, "%d", &num_layers) != 1) {
+        fclose(file);
+        return NULL;
+    }
+
+    int* architecture = (int*)malloc(num_layers * sizeof(int));
+    if (!architecture) {
+        fclose(file);
+        return NULL;
+    }
+    for (int i = 0; i < num_layers; i++) {
+        if (fscanf(file, "%d", &architecture[i]) != 1) {
+            free(architecture);
+            fclose(file);
+            return NULL; // Failed to read architecture
+        }
+    }
+
+    NeuralNetwork* net = create_neural_network(num_layers, architecture);
+    free(architecture); // create_neural_network makes a copy
+    if (!net) {
+        fclose(file);
+        return NULL;
+    }
+
+    // Read weights and biases
+    for (int i = 0; i < net->num_layers - 1; i++) {
+        // Weights
+        for (int r = 0; r < net->weights[i]->rows; r++) {
+            for (int c = 0; c < net->weights[i]->cols; c++) {
+                if (fscanf(file, "%lf", &net->weights[i]->data[r][c]) != 1) {
+                    free_neural_network(net);
+                    fclose(file);
+                    return NULL; // Failed to read weight
+                }
+            }
+        }
+        // Biases
+        for (int c = 0; c < net->biases[i]->cols; c++) {
+            if (fscanf(file, "%lf", &net->biases[i]->data[0][c]) != 1) {
+                free_neural_network(net);
+                fclose(file);
+                return NULL; // Failed to read bias
+            }
+        }
+    }
+
+    fclose(file);
+    return net;
+}

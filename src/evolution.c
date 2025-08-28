@@ -44,7 +44,35 @@ NetworkFitness* select_fittest(NetworkFitness* population_with_fitness, int popu
     return fittest;
 }
 
-// Creates a new generation by cloning and mutating the fittest networks
+// Performs crossover between two parent networks to produce a child.
+// The child's weights and biases are the average of the parents'.
+NeuralNetwork* crossover(const NeuralNetwork* parent1, const NeuralNetwork* parent2) {
+    if (!parent1 || !parent2 || parent1->num_layers != parent2->num_layers) {
+        return NULL;
+    }
+
+    // Create a new network with the same architecture
+    NeuralNetwork* child = create_neural_network(parent1->num_layers, parent1->architecture);
+    if (!child) return NULL;
+
+    // Average the weights and biases
+    for (int i = 0; i < parent1->num_layers - 1; i++) {
+        // Weights
+        for (int r = 0; r < parent1->weights[i]->rows; r++) {
+            for (int c = 0; c < parent1->weights[i]->cols; c++) {
+                child->weights[i]->data[r][c] = (parent1->weights[i]->data[r][c] + parent2->weights[i]->data[r][c]) / 2.0;
+            }
+        }
+        // Biases
+        for (int c = 0; c < parent1->biases[i]->cols; c++) {
+            child->biases[i]->data[0][c] = (parent1->biases[i]->data[0][c] + parent2->biases[i]->data[0][c]) / 2.0;
+        }
+    }
+
+    return child;
+}
+
+// Creates a new generation using crossover and mutation
 NeuralNetwork** reproduce(const NetworkFitness* fittest_networks, int num_fittest, int new_population_size, float mutation_rate, float mutation_chance) {
     if (num_fittest == 0) return NULL;
 
@@ -52,12 +80,18 @@ NeuralNetwork** reproduce(const NetworkFitness* fittest_networks, int num_fittes
     if (!new_population) return NULL;
 
     for (int i = 0; i < new_population_size; i++) {
-        // Choose a random parent from the fittest networks
-        int parent_index = rand() % num_fittest;
-        const NeuralNetwork* parent = fittest_networks[parent_index].network;
+        // Choose two random parents from the fittest networks
+        int parent1_index = rand() % num_fittest;
+        int parent2_index = rand() % num_fittest;
+        const NeuralNetwork* parent1 = fittest_networks[parent1_index].network;
+        const NeuralNetwork* parent2 = fittest_networks[parent2_index].network;
 
-        // Clone the parent to create a child
-        NeuralNetwork* child = clone_network(parent);
+        // Create a child using crossover
+        NeuralNetwork* child = crossover(parent1, parent2);
+        if (!child) {
+            // Handle crossover failure, e.g., by cloning one parent
+            child = clone_network(parent1);
+        }
 
         // Mutate the child
         mutate_network(child, mutation_rate, mutation_chance);

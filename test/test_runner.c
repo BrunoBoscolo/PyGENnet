@@ -2,6 +2,7 @@
 #include "test_suites.h"
 
 int tests_run = 0;
+const double TEST_EPSILON = 1e-9;
 
 const char* all_suites() {
     // Run tests from test_matrix.c
@@ -11,6 +12,12 @@ const char* all_suites() {
     // Run tests from test_neural_network.c
     mu_run_test(test_nn_creation);
     mu_run_test(test_nn_forward_pass);
+
+    // Run tests from test_persistence.c
+    mu_run_test(test_save_and_load_network);
+
+    // Run tests from test_evolution.c
+    mu_run_test(test_crossover);
 
     return NULL;
 }

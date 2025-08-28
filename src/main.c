@@ -66,10 +66,10 @@ int main() {
     // --- 1. Define Parameters ---
     const int ARCHITECTURE[] = {MNIST_IMAGE_SIZE, 128, MNIST_NUM_CLASSES};
     const int NUM_LAYERS = sizeof(ARCHITECTURE) / sizeof(int);
-    const int POPULATION_SIZE = 50;
+#define POPULATION_SIZE 50
+#define NUM_GENERATIONS 10
     const float MUTATION_RATE = 0.05f;
     const float MUTATION_CHANCE = 0.1f;
-    const int NUM_GENERATIONS = 10;
 
     // --- 2. Load MNIST Data ---
     Dataset* train_dataset = load_mnist_dataset("data/train-images.idx3-ubyte", "data/train-labels.idx1-ubyte");
@@ -79,7 +79,7 @@ int main() {
     }
     // The training set will be used for both training and fitness evaluation.
 
-    const int FITNESS_SAMPLES = 1000; // Use 1000 samples for fitness eval
+#define FITNESS_SAMPLES 1000 // Use 1000 samples for fitness eval
 
     // --- 3. Create Initial Population ---
     srand(time(NULL));
